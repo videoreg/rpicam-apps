@@ -1,6 +1,11 @@
 # rpicam-apps
 This is a small suite of libcamera-based applications to drive the cameras on a Raspberry Pi platform.
 
+> [!NOTE]
+> **This fork extends the original project with additional features:**
+>
+> - **AutoUpdateTextStage** — a post-processing stage that automatically updates the text annotation on frames by reading text from an external file. Allows changing the on-screen label dynamically without restarting the application. See [AUTO_UPDATE_TEXT_STAGE.md](AUTO_UPDATE_TEXT_STAGE.md) for details.
+
 >[!WARNING]
 >These applications and libraries have been renamed from `libcamera-*` to `rpicam-*`. Symbolic links to allow users to keep using the old application names have now been removed.
 

@@ -1,0 +1,15 @@
+{
+    "auto_update_text" :
+    {
+        "file" : "/tmp/text_overlay.txt"
+    },
+    "annotate_cv" :
+    {
+        "text" : "Default text",
+        "fg" : 255,
+        "bg" : 0,
+        "scale" : 1.0,
+        "thickness" : 2,
+        "alpha" : 0.3
+    }
+}
