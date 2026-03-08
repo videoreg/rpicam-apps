@@ -10,16 +10,21 @@
 #include <cstdio>
 
 #include <atomic>
+#include <functional>
+#include <string>
 
 #include "core/video_options.hpp"
 
 class Output
 {
 public:
+	using NewFileCallback = std::function<void(const std::string &)>;
+
 	static Output *Create(VideoOptions const *options);
 
 	Output(VideoOptions const *options);
 	virtual ~Output();
+	virtual void SetNewFileCallback(NewFileCallback) {}
 	virtual void Signal(); // a derived class might redefine what this means
 	void OutputReady(void *mem, size_t size, int64_t timestamp_us, bool keyframe);
 	void MetadataReady(libcamera::ControlList &metadata);

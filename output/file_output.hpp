@@ -15,6 +15,8 @@ public:
 	FileOutput(VideoOptions const *options);
 	~FileOutput();
 
+	void SetNewFileCallback(NewFileCallback cb) override { new_file_callback_ = std::move(cb); }
+
 protected:
 	void outputBuffer(void *mem, size_t size, int64_t timestamp_us, uint32_t flags) override;
 
@@ -24,4 +26,5 @@ private:
 	FILE *fp_;
 	unsigned int count_;
 	int64_t file_start_time_ms_;
+	NewFileCallback new_file_callback_;
 };

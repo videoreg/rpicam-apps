@@ -287,6 +287,7 @@ struct OptsInternal
 	bool pause;
 	bool split;
 	uint32_t segment;
+	std::string screenshot;
 	size_t circular;
 	uint32_t frames;
 	bool low_latency;

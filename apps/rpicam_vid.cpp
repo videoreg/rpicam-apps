@@ -6,12 +6,15 @@
  */
 
 #include <chrono>
+#include <filesystem>
+#include <mutex>
 #include <poll.h>
 #include <signal.h>
 #include <sys/signalfd.h>
 #include <sys/stat.h>
 
 #include "core/rpicam_encoder.hpp"
+#include "image/image.hpp"
 #include "output/output.hpp"
 
 using namespace std::placeholders;
@@ -69,6 +72,28 @@ static void event_loop(RPiCamEncoder &app)
 	app.SetEncodeOutputReadyCallback(std::bind(&Output::OutputReady, output.get(), _1, _2, _3, _4));
 	app.SetMetadataReadyCallback(std::bind(&Output::MetadataReady, output.get(), _1));
 
+	// Screenshot support: when a new segment file is opened, save a JPEG of the next raw frame.
+	std::atomic<bool> pending_screenshot{ false };
+	std::mutex screenshot_mutex;
+	std::string screenshot_path;
+
+	if (!options->Get().screenshot.empty())
+	{
+		output->SetNewFileCallback([&](const std::string &video_filename)
+		{
+			std::string stem = std::filesystem::path(video_filename).stem().string();
+			std::string tmpl = options->Get().screenshot;
+			size_t pos;
+			while ((pos = tmpl.find("%V")) != std::string::npos)
+				tmpl.replace(pos, 2, stem);
+			{
+				std::lock_guard<std::mutex> lock(screenshot_mutex);
+				screenshot_path = tmpl;
+			}
+			pending_screenshot = true;
+		});
+	}
+
 	app.OpenCamera();
 	app.ConfigureVideo(get_colourspace_flags(options->Get().codec));
 	app.StartEncoder();
@@ -125,6 +150,29 @@ static void event_loop(RPiCamEncoder &app)
 			start_time = now;
 			count = 0; // reset the "frames encoded" counter too
 		}
+
+		if (pending_screenshot.exchange(false))
+		{
+			std::string path;
+			{
+				std::lock_guard<std::mutex> lock(screenshot_mutex);
+				path = screenshot_path;
+			}
+			try
+			{
+				auto *stream = app.VideoStream();
+				StreamInfo info = app.GetStreamInfo(stream);
+				auto *buffer = completed_request->buffers[stream];
+				BufferReadSync r(&app, buffer);
+				jpeg_save_simple(r.Get(), info, path, 85);
+				LOG(1, "Screenshot saved to " << path);
+			}
+			catch (std::exception const &e)
+			{
+				LOG_ERROR("Failed to save screenshot: " << e.what());
+			}
+		}
+
 		app.ShowPreview(completed_request, app.VideoStream());
 	}
 }

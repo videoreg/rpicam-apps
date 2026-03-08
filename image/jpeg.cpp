@@ -570,6 +570,27 @@ static void create_exif_data(std::vector<libcamera::Span<uint8_t>> const &mem, S
 	}
 }
 
+void jpeg_save_simple(std::vector<libcamera::Span<uint8_t>> const &mem, StreamInfo const &info,
+					  std::string const &filename, int quality)
+{
+	if (mem.size() != 1)
+		throw std::runtime_error("only single plane YUV supported for screenshot");
+
+	uint8_t *jpeg_buffer = nullptr;
+	jpeg_mem_len_t jpeg_len = 0;
+	YUV_to_JPEG((uint8_t *)mem[0].data(), info, info.width, info.height, quality, 0, jpeg_buffer, jpeg_len);
+
+	FILE *fp = fopen(filename.c_str(), "wb");
+	if (!fp)
+	{
+		free(jpeg_buffer);
+		throw std::runtime_error("failed to open screenshot file " + filename);
+	}
+	fwrite(jpeg_buffer, 1, jpeg_len, fp);
+	fclose(fp);
+	free(jpeg_buffer);
+}
+
 void jpeg_save(std::vector<libcamera::Span<uint8_t>> const &mem, StreamInfo const &info, ControlList const &metadata,
 			   std::string const &filename, std::string const &cam_model, StillOptions const *options)
 {

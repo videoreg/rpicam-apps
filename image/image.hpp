@@ -18,6 +18,9 @@
 struct StillOptions;
 
 // In jpeg.cpp:
+void jpeg_save_simple(std::vector<libcamera::Span<uint8_t>> const &mem, StreamInfo const &info,
+					  std::string const &filename, int quality);
+
 void jpeg_save(std::vector<libcamera::Span<uint8_t>> const &mem, StreamInfo const &info,
 			   libcamera::ControlList const &metadata, std::string const &filename, std::string const &cam_model,
 			   StillOptions const *options);

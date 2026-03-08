@@ -825,6 +825,7 @@ void OptsInternal::PrintVideo() const
 	std::cerr << "    initial: " << initial << std::endl;
 	std::cerr << "    split: " << split << std::endl;
 	std::cerr << "    segment: " << segment << std::endl;
+	std::cerr << "    screenshot: " << screenshot << std::endl;
 	std::cerr << "    circular: " << circular << std::endl;
 #ifndef DISABLE_RPI_FEATURES
 	std::cerr << "    sync: " << sync << std::endl;
