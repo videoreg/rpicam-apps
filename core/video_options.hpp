@@ -52,6 +52,9 @@ struct VideoOptions : public Options
 			 "Create a new output file every time recording is paused and then resumed")
 			("segment", value<uint32_t>(&v_->segment)->default_value(0),
 			 "Break the recording into files of approximately this many milliseconds")
+			("screenshot", value<std::string>(&v_->screenshot),
+			 "Save a JPEG screenshot at the start of each segment chunk. "
+			 "Specify a path template; use %V for the video chunk filename stem (no path, no extension).")
 			("circular", value<size_t>(&v_->circular)->default_value(0)->implicit_value(4),
 			 "Write output to a circular buffer of the given size (in MB) which is saved on exit")
 			("frames", value<unsigned int>(&v_->frames)->default_value(0),

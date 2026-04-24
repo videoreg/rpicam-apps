@@ -46,6 +46,7 @@ if opencv_dep.found()
         'sobel_cv_stage.cpp',
         'face_detect_cv_stage.cpp',
         'annotate_cv_stage.cpp',
+        'auto_update_text_stage.cpp',
         'plot_pose_cv_stage.cpp',
         'object_detect_draw_cv_stage.cpp',
         'object_blur_stage.cpp',
@@ -57,6 +58,7 @@ if opencv_dep.found()
         assets_dir / 'sobel_cv.json',
         assets_dir / 'face_detect_cv.json',
         assets_dir / 'annotate_cv.json',
+        assets_dir / 'auto_update_text.json',
     ])
 
     # Add clang-specific flag to suppress C11 extension warnings when including OpenCV headers

@@ -6,12 +6,16 @@
  */
 
 #include <chrono>
+#include <filesystem>
+#include <mutex>
+#include <thread>
 #include <poll.h>
 #include <signal.h>
 #include <sys/signalfd.h>
 #include <sys/stat.h>
 
 #include "core/rpicam_encoder.hpp"
+#include "image/image.hpp"
 #include "output/output.hpp"
 
 using namespace std::placeholders;
@@ -69,6 +73,30 @@ static void event_loop(RPiCamEncoder &app)
 	app.SetEncodeOutputReadyCallback(std::bind(&Output::OutputReady, output.get(), _1, _2, _3, _4));
 	app.SetMetadataReadyCallback(std::bind(&Output::MetadataReady, output.get(), _1));
 
+	// Screenshot support: when a new segment file is opened, save a JPEG of the next raw frame.
+	std::atomic<bool> pending_screenshot{ false };
+	std::mutex screenshot_mutex;
+	std::string screenshot_path;
+	// Pre-allocated buffer reused across screenshots to avoid repeated heap allocation.
+	std::vector<uint8_t> screenshot_buf;
+
+	if (!options->Get().screenshot.empty())
+	{
+		output->SetNewFileCallback([&](const std::string &video_filename)
+		{
+			std::string stem = std::filesystem::path(video_filename).stem().string();
+			std::string tmpl = options->Get().screenshot;
+			size_t pos;
+			while ((pos = tmpl.find("%V")) != std::string::npos)
+				tmpl.replace(pos, 2, stem);
+			{
+				std::lock_guard<std::mutex> lock(screenshot_mutex);
+				screenshot_path = tmpl;
+			}
+			pending_screenshot = true;
+		});
+	}
+
 	app.OpenCamera();
 	app.ConfigureVideo(get_colourspace_flags(options->Get().codec));
 	app.StartEncoder();
@@ -92,6 +120,7 @@ static void event_loop(RPiCamEncoder &app)
 		{
 			LOG_ERROR("ERROR: Device timeout detected, attempting a restart!!!");
 			app.StopCamera();
+			app.ConfigureVideo(get_colourspace_flags(options->Get().codec));
 			app.StartCamera();
 			continue;
 		}
@@ -118,14 +147,63 @@ static void event_loop(RPiCamEncoder &app)
 			return;
 		}
 		CompletedRequestPtr &completed_request = std::get<CompletedRequestPtr>(msg.payload);
-		if (!app.EncodeBuffer(completed_request, app.VideoStream()))
+		auto *stream = app.VideoStream();
+
+		// Screenshot is taken before EncodeBuffer so the DMA buffer is still
+		// exclusively in CPU-read mode (before V4L2 QBUF hands it to the
+		// hardware encoder's DMA engine).
+		if (pending_screenshot.exchange(false))
+		{
+			std::string path;
+			{
+				std::lock_guard<std::mutex> lock(screenshot_mutex);
+				path = screenshot_path;
+			}
+			try
+			{
+				StreamInfo info = app.GetStreamInfo(stream);
+				auto it = completed_request->buffers.find(stream);
+				if (it == completed_request->buffers.end() || !it->second)
+					throw std::runtime_error("video stream buffer not found");
+				auto *buffer = it->second;
+				BufferReadSync r(&app, buffer);
+				auto &spans = r.Get();
+				if (!spans.empty() && spans[0].size() > 0)
+				{
+					// Copy frame data into pre-allocated buffer (reused across screenshots).
+					screenshot_buf.resize(spans[0].size());
+					std::memcpy(screenshot_buf.data(), spans[0].data(), spans[0].size());
+					// JPEG encoding (~100ms) runs in a detached thread with its own copy.
+					std::thread([data = screenshot_buf, info, path]()
+					{
+						try
+						{
+							libcamera::Span<uint8_t> span(const_cast<uint8_t *>(data.data()), data.size());
+							jpeg_save_simple({ span }, info, path, 85);
+							LOG(1, "Screenshot saved to " << path);
+						}
+						catch (std::exception const &e)
+						{
+							LOG_ERROR("Failed to save screenshot: " << e.what());
+						}
+					}).detach();
+				}
+			}
+			catch (std::exception const &e)
+			{
+				LOG_ERROR("Failed to prepare screenshot: " << e.what());
+			}
+		}
+
+		if (!app.EncodeBuffer(completed_request, stream))
 		{
 			// Keep advancing our "start time" if we're still waiting to start recording (e.g.
 			// waiting for synchronisation with another camera).
 			start_time = now;
 			count = 0; // reset the "frames encoded" counter too
 		}
-		app.ShowPreview(completed_request, app.VideoStream());
+
+		app.ShowPreview(completed_request, stream);
 	}
 }
 
