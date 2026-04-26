@@ -1,7 +1,8 @@
 # rpicam-apps
 
 > [!NOTE]
-> **This fork extends the original project with additional features:**
+> **This fork extends the original [raspberrypi/rpicam-apps](https://github.com/raspberrypi/rpicam-apps) project with additional features for [Pi-Videoreg project](https://github.com/videoreg/pi-videoreg):**
+>
 >
 > - **AutoUpdateTextStage** — a post-processing stage that automatically updates the text annotation on frames by reading text from an external file. Allows changing the on-screen label dynamically without restarting the application. See [AUTO_UPDATE_TEXT_STAGE.md](AUTO_UPDATE_TEXT_STAGE.md) for details.
 >
